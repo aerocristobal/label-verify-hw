@@ -176,12 +176,32 @@ async fn process_job_inner(
     job: &label_verify_hw::services::queue::QueuedJob,
 ) -> Result<label_verify_hw::models::label::VerificationResult, Box<dyn std::error::Error>> {
     // Download encrypted image from R2
-    tracing::debug!(job_id = %job.job_id, "Downloading image from R2");
-    let encrypted_image = state.storage.download(&job.image_key).await?;
+    tracing::info!(job_id = %job.job_id, "Downloading image from R2");
+    let encrypted_image = state.storage.download(&job.image_key).await
+        .map_err(|e| {
+            tracing::error!(job_id = %job.job_id, error = %e, "R2 download failed");
+            e
+        })?;
+
+    tracing::info!(
+        job_id = %job.job_id,
+        encrypted_size = encrypted_image.len(),
+        first_bytes = ?&encrypted_image[..std::cmp::min(16, encrypted_image.len())],
+        "Downloaded encrypted image from R2"
+    );
 
     // Decrypt image in memory
-    tracing::debug!(job_id = %job.job_id, "Decrypting image");
-    let image_bytes = state.encryption.decrypt(&encrypted_image)?;
+    tracing::info!(job_id = %job.job_id, "Decrypting image");
+    let image_bytes = state.encryption.decrypt(&encrypted_image)
+        .map_err(|e| {
+            tracing::error!(
+                job_id = %job.job_id,
+                error = %e,
+                data_len = encrypted_image.len(),
+                "Decryption failed — data may be corrupted or key mismatch"
+            );
+            e
+        })?;
 
     // Call Workers AI for OCR
     tracing::debug!(job_id = %job.job_id, "Calling Workers AI for OCR");

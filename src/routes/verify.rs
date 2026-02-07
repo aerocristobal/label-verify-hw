@@ -147,7 +147,7 @@ pub async fn submit_verification(
     metrics::counter!("verification_jobs_total").increment(1);
 
     tracing::info!(
-        job_id = %job_id,
+        job_id = %job.id,
         image_key = %image_key,
         image_size = image_data.len(),
         encrypted_size = encrypted_image.len(),
@@ -155,7 +155,7 @@ pub async fn submit_verification(
     );
 
     Ok(Json(VerifyResponse {
-        job_id,
+        job_id: job.id,
         status: "pending".to_string(),
         message: "Label submitted for verification".to_string(),
     }))

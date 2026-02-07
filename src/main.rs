@@ -5,13 +5,12 @@ mod models;
 mod routes;
 mod services;
 
-use axum::{routing::get, routing::post, Router};
+use axum::{extract::DefaultBodyLimit, routing::get, routing::post, Router};
 use axum::response::Html;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use std::sync::Arc;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
-use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
@@ -123,10 +122,10 @@ async fn main() {
             "/metrics",
             get(routes::metrics::prometheus_metrics).with_state(prometheus_handle),
         )
+        .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) // 10 MB limit
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
-        .layer(CorsLayer::permissive())
-        .layer(RequestBodyLimitLayer::new(10 * 1024 * 1024)); // 10 MB limit
+        .layer(CorsLayer::permissive());
 
     tracing::info!("Starting label-verify-hw on {}", config.bind_addr);
 

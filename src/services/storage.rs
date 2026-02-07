@@ -23,23 +23,41 @@ impl R2Client {
                 .map_err(|e| StorageError::Config(e.to_string()))?;
 
         let bucket = Bucket::new(bucket_name, region, credentials)
-            .map_err(|e| StorageError::Config(e.to_string()))?;
+            .map_err(|e| StorageError::Config(e.to_string()))?
+            .with_path_style();
 
         Ok(Self { bucket })
     }
 
     /// Upload encrypted image bytes to R2.
     pub async fn upload(&self, key: &str, data: &[u8], content_type: &str) -> Result<(), StorageError> {
-        self.bucket
+        let response = self.bucket
             .put_object_with_content_type(key, data, content_type)
             .await
             .map_err(StorageError::S3)?;
+        let status = response.status_code();
+        if status < 200 || status >= 300 {
+            return Err(StorageError::Config(format!(
+                "R2 upload returned HTTP {}: {}",
+                status,
+                String::from_utf8_lossy(&response.to_vec())
+            )));
+        }
+        tracing::info!(key = %key, status = status, size = data.len(), "R2 upload completed");
         Ok(())
     }
 
     /// Download encrypted image bytes from R2.
     pub async fn download(&self, key: &str) -> Result<Vec<u8>, StorageError> {
         let response = self.bucket.get_object(key).await.map_err(StorageError::S3)?;
+        let status = response.status_code();
+        if status < 200 || status >= 300 {
+            return Err(StorageError::Config(format!(
+                "R2 download returned HTTP {}: {}",
+                status,
+                String::from_utf8_lossy(&response.to_vec())
+            )));
+        }
         Ok(response.to_vec())
     }
 
