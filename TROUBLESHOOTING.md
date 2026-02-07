@@ -22,6 +22,42 @@ ERROR: failed to calculate checksum: "/Cargo.lock": not found
 
 ---
 
+### Error: home crate requires edition2024
+
+**Symptom**:
+```
+error: feature `edition2024` is required
+  The package requires the Cargo feature called `edition2024`
+```
+
+**Cause**: Dependency `home` crate v0.5.12+ requires edition2024 which wasn't stable in Rust 1.83
+
+**Solution**: ✅ **FIXED**
+- Updated Dockerfiles to use Rust 1.93.0 (latest stable)
+- Rust 1.93 supports edition2024 dependencies
+- Changed from `rust:1.83-slim` to `rust:1.93-slim` in both Dockerfile.api and Dockerfile.worker
+
+---
+
+### Error: SQLx compile-time checking requires DATABASE_URL
+
+**Symptom**:
+```
+error: set `DATABASE_URL` to use query macros online, or run `cargo sqlx prepare`
+```
+
+**Cause**: SQLx `query!` macros perform compile-time SQL verification, requiring either:
+- Live database connection (DATABASE_URL) during build
+- Pre-generated query cache (.sqlx directory)
+
+**Solution**: ✅ **FIXED**
+- Converted all `sqlx::query!` macros to runtime-checked `sqlx::query`
+- Updated src/db/queries.rs to use `.bind()` and `.try_get()` patterns
+- Trade-off: Loses compile-time type checking but enables database-free Docker builds
+- Alternative: Run `cargo sqlx prepare` locally and commit `.sqlx/` directory (restores type checking)
+
+---
+
 ### Error: Missing Environment Variables
 
 **Symptom**:

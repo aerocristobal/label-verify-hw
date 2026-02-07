@@ -2,7 +2,7 @@
 # Optimized for production deployment
 
 # Build stage
-FROM rust:1.83-slim as builder
+FROM rust:1.93-slim as builder
 
 WORKDIR /app
 
@@ -31,6 +31,7 @@ COPY migrations ./migrations
 
 # Build release binary
 # Touch files to ensure rebuild
+# SQLx will use unchecked queries (no database available during build)
 RUN touch src/main.rs && \
     cargo build --release --bin label-verify-hw
 

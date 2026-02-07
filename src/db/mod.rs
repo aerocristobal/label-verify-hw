@@ -15,7 +15,10 @@ pub async fn init_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
 
 /// Run database migrations
 pub async fn run_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
-    sqlx::migrate!("./migrations").run(pool).await
+    sqlx::migrate!("./migrations")
+        .run(pool)
+        .await
+        .map_err(|e| sqlx::Error::Migrate(Box::new(e)))
 }
 
 pub mod queries;

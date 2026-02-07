@@ -16,7 +16,7 @@ use app_state::AppState;
 use config::AppConfig;
 use services::{
     encryption::EncryptionService,
-    ocr::WorkersAIClient,
+    ocr::WorkersAiClient,
     queue::JobQueue,
     storage::R2Client,
 };
@@ -69,7 +69,7 @@ async fn main() {
 
     // Initialize Workers AI client
     tracing::info!("Initializing Cloudflare Workers AI client");
-    let ocr_client = WorkersAIClient::new(&config.cf_account_id, &config.cf_api_token)
+    let ocr_client = WorkersAiClient::new(&config.cf_account_id, &config.cf_api_token)
         .expect("Failed to initialize Workers AI client");
 
     // Create shared application state

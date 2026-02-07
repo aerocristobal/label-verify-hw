@@ -1,0 +1,3 @@
+# SQLx offline query cache
+# This directory stores prepared query metadata for offline compilation
+# Run `cargo sqlx prepare` to regenerate after schema changes

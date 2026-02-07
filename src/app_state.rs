@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::services::{
     encryption::EncryptionService,
-    ocr::WorkersAIClient,
+    ocr::WorkersAiClient,
     queue::JobQueue,
     storage::R2Client,
 };
@@ -15,7 +15,7 @@ pub struct AppState {
     pub storage: Arc<R2Client>,
     pub encryption: Arc<EncryptionService>,
     pub queue: Arc<JobQueue>,
-    pub ocr: Arc<WorkersAIClient>,
+    pub ocr: Arc<WorkersAiClient>,
 }
 
 impl AppState {
@@ -24,7 +24,7 @@ impl AppState {
         storage: R2Client,
         encryption: EncryptionService,
         queue: JobQueue,
-        ocr: WorkersAIClient,
+        ocr: WorkersAiClient,
     ) -> Self {
         Self {
             db,

@@ -4,7 +4,7 @@ use label_verify_hw::{
     db::{self, queries},
     models::job::JobStatus,
     services::{
-        encryption::EncryptionService, ocr::WorkersAIClient, queue::JobQueue, storage::R2Client,
+        encryption::EncryptionService, ocr::WorkersAiClient, queue::JobQueue, storage::R2Client,
         validation,
     },
 };
@@ -52,7 +52,7 @@ async fn main() {
 
     let queue = JobQueue::new(&config.redis_url).expect("Failed to initialize job queue");
 
-    let ocr_client = WorkersAIClient::new(&config.cf_account_id, &config.cf_api_token)
+    let ocr_client = WorkersAiClient::new(&config.cf_account_id, &config.cf_api_token)
         .expect("Failed to initialize Workers AI client");
 
     let state = AppState::new(db_pool, r2_client, encryption, queue, ocr_client);
