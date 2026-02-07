@@ -5,7 +5,7 @@
 
 # Rust build artifacts
 target/
-Cargo.lock
+# Note: Cargo.lock is needed for reproducible builds
 
 # Environment files
 .env

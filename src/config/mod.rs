@@ -31,12 +31,6 @@ pub struct AppConfig {
 
     /// AES-256-GCM encryption key (base64-encoded, 32 bytes)
     pub encryption_key: String,
-
-    /// Azure AD tenant ID for JWT validation
-    pub azure_tenant_id: String,
-
-    /// Azure AD client/audience ID
-    pub azure_client_id: String,
 }
 
 impl AppConfig {
