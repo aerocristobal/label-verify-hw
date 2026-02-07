@@ -1,0 +1,131 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: labelverify-postgres
+    environment:
+      POSTGRES_DB: labelverify_prod
+      POSTGRES_USER: labelverify
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labelverify"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - labelverify-network
+
+  # Redis job queue
+  redis:
+    image: redis:7-alpine
+    container_name: labelverify-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - labelverify-network
+
+  # API server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: labelverify-api
+    ports:
+      - "3000:3000"
+    environment:
+      BIND_ADDR: 0.0.0.0:3000
+      DATABASE_URL: postgresql://labelverify:${DB_PASSWORD}@postgres:5432/labelverify_prod
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      CF_ACCOUNT_ID: ${CF_ACCOUNT_ID}
+      CF_API_TOKEN: ${CF_API_TOKEN}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ACCESS_KEY: ${R2_ACCESS_KEY}
+      R2_SECRET_KEY: ${R2_SECRET_KEY}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+      RUST_LOG: ${RUST_LOG:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - labelverify-network
+
+  # Background worker(s)
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: labelverify-worker
+    environment:
+      DATABASE_URL: postgresql://labelverify:${DB_PASSWORD}@postgres:5432/labelverify_prod
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      CF_ACCOUNT_ID: ${CF_ACCOUNT_ID}
+      CF_API_TOKEN: ${CF_API_TOKEN}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ACCESS_KEY: ${R2_ACCESS_KEY}
+      R2_SECRET_KEY: ${R2_SECRET_KEY}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      RUST_LOG: ${RUST_LOG:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - labelverify-network
+    # Scale workers as needed with: docker compose up -d --scale worker=3
+    deploy:
+      replicas: 1
+
+  # Cloudflare Tunnel (optional - for production)
+  # Uncomment to use Cloudflare Tunnel
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: labelverify-tunnel
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+  #   depends_on:
+  #     - api
+  #   restart: unless-stopped
+  #   networks:
+  #     - labelverify-network
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  labelverify-network:
+    driver: bridge

@@ -6,6 +6,7 @@ Cargo.lock
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # IDE
 .vscode/
@@ -19,3 +20,15 @@ Cargo.lock
 
 # Utility scripts (one-time use)
 create-issues.sh
+
+# Docker
+docker-compose.override.yml
+
+# Backups
+backups/
+*.sql
+*.dump
+
+# Production files
+.env.prod
+cloudflared/
