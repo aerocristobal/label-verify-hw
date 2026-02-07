@@ -29,12 +29,12 @@ struct LlavaResult {
 }
 
 impl WorkersAiClient {
-    pub fn new(account_id: String, api_token: String) -> Self {
-        Self {
+    pub fn new(account_id: &str, api_token: &str) -> Result<Self, OcrError> {
+        Ok(Self {
             http: Client::new(),
-            account_id,
-            api_token,
-        }
+            account_id: account_id.to_string(),
+            api_token: api_token.to_string(),
+        })
     }
 
     /// Send a label image to Workers AI LLaVA and extract structured fields.

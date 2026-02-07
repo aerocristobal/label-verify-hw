@@ -49,3 +49,17 @@ thiserror = "2"
 
 [dev-dependencies]
 tokio-test = "0.4"
+
+# Worker binary for processing jobs
+[[bin]]
+name = "worker"
+path = "src/bin/worker.rs"
+
+# Examples for testing Cloudflare connectivity
+[[example]]
+name = "test_r2"
+path = "examples/test_r2.rs"
+
+[[example]]
+name = "test_workers_ai"
+path = "examples/test_workers_ai.rs"
