@@ -143,6 +143,9 @@ pub async fn submit_verification(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Queue error: {}", e)))?;
 
+    // Record metrics
+    metrics::counter!("verification_jobs_total").increment(1);
+
     tracing::info!(
         job_id = %job_id,
         image_key = %image_key,

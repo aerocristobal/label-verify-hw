@@ -53,6 +53,23 @@ impl JobQueue {
         }
     }
 
+    /// Check Redis connectivity (for health checks).
+    pub async fn health_check(&self) -> Result<(), QueueError> {
+        let mut conn = self.client.get_multiplexed_async_connection().await.map_err(QueueError::Redis)?;
+        redis::cmd("PING")
+            .query_async::<String>(&mut conn)
+            .await
+            .map_err(QueueError::Redis)?;
+        Ok(())
+    }
+
+    /// Get the current queue depth (pending jobs).
+    pub async fn queue_depth(&self) -> Result<u64, QueueError> {
+        let mut conn = self.client.get_multiplexed_async_connection().await.map_err(QueueError::Redis)?;
+        let depth: u64 = conn.llen(QUEUE_KEY).await.map_err(QueueError::Redis)?;
+        Ok(depth)
+    }
+
     /// Mark a job as complete (remove from processing set).
     pub async fn complete(&self, job: &QueuedJob) -> Result<(), QueueError> {
         let mut conn = self.client.get_multiplexed_async_connection().await.map_err(QueueError::Redis)?;

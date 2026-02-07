@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTB Label Verification</title>
+    <style>
+        /* Reset and base */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+
+        /* Accessibility: focus outline */
+        :focus-visible {
+            outline: 3px solid #2563eb;
+            outline-offset: 2px;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 24px 16px;
+        }
+
+        /* Header */
+        header {
+            background: #1e3a5f;
+            color: #fff;
+            padding: 24px 0;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        header p {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+
+        /* Card */
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 32px 24px;
+            margin-top: 24px;
+        }
+
+        .card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 20px;
+            color: #1e3a5f;
+        }
+
+        /* Form */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #333;
+        }
+
+        label .hint {
+            font-weight: 400;
+            color: #666;
+            font-size: 0.875rem;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 1rem;
+            border: 2px solid #d1d5db;
+            border-radius: 6px;
+            background: #fff;
+            transition: border-color 0.15s;
+        }
+
+        input:hover { border-color: #9ca3af; }
+        input:focus { border-color: #2563eb; outline: none; }
+
+        /* File upload area */
+        .upload-area {
+            border: 3px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 40px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: #fafbfc;
+            min-height: 160px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .upload-area:hover,
+        .upload-area.drag-over {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+
+        .upload-area.has-file {
+            border-color: #16a34a;
+            background: #f0fdf4;
+        }
+
+        .upload-area .icon {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+        }
+
+        .upload-area p {
+            font-size: 1rem;
+            color: #555;
+        }
+
+        .upload-area .filename {
+            font-weight: 600;
+            color: #16a34a;
+            margin-top: 8px;
+        }
+
+        input[type="file"] {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            font-size: 1.125rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: center;
+            min-width: 200px;
+            min-height: 48px;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+        .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .btn-secondary:hover { background: #d1d5db; }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        /* Progress */
+        .progress-section {
+            display: none;
+            text-align: center;
+            padding: 24px 0;
+        }
+
+        .progress-section.visible { display: block; }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .progress-text {
+            font-size: 1.125rem;
+            color: #555;
+        }
+
+        .progress-timer {
+            font-size: 0.875rem;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* Results */
+        .results-section {
+            display: none;
+        }
+
+        .results-section.visible { display: block; }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .result-header.passed {
+            background: #f0fdf4;
+            border: 2px solid #16a34a;
+        }
+
+        .result-header.failed {
+            background: #fef2f2;
+            border: 2px solid #dc2626;
+        }
+
+        .result-header .icon { font-size: 2rem; }
+
+        .result-header h3 {
+            font-size: 1.25rem;
+        }
+
+        .result-header .confidence {
+            font-size: 0.875rem;
+            color: #555;
+        }
+
+        /* Field results table */
+        .field-results {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .field-results th,
+        .field-results td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.9375rem;
+        }
+
+        .field-results th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .field-results .status-match {
+            color: #16a34a;
+            font-weight: 600;
+        }
+
+        .field-results .status-mismatch {
+            color: #dc2626;
+            font-weight: 600;
+        }
+
+        /* Error display */
+        .error-message {
+            background: #fef2f2;
+            border: 2px solid #fca5a5;
+            border-radius: 8px;
+            padding: 16px;
+            color: #991b1b;
+            font-size: 1rem;
+            margin-top: 16px;
+            display: none;
+        }
+
+        .error-message.visible { display: block; }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 24px 0;
+            font-size: 0.875rem;
+            color: #888;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container { padding: 16px 12px; }
+            .card { padding: 20px 16px; }
+            .form-actions { flex-direction: column; }
+            .btn { width: 100%; }
+            .field-results th,
+            .field-results td { padding: 8px 10px; font-size: 0.875rem; }
+        }
+
+        /* Skip link for keyboard users */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: #2563eb;
+            color: #fff;
+            padding: 8px 16px;
+            z-index: 100;
+            transition: top 0.15s;
+        }
+
+        .skip-link:focus { top: 0; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <header>
+        <div class="container">
+            <h1>TTB Label Verification</h1>
+            <p>Automated beverage label compliance checking</p>
+        </div>
+    </header>
+
+    <main id="main-content" class="container">
+        <!-- Upload Form -->
+        <div class="card" id="upload-card">
+            <h2>Verify a Label</h2>
+            <form id="verify-form" novalidate>
+                <div class="form-group">
+                    <label for="image-upload">
+                        Label Image <span class="hint">(JPEG, PNG, or WebP, max 10MB)</span>
+                    </label>
+                    <div class="upload-area" id="upload-area" role="button" tabindex="0"
+                         aria-label="Click or drag to upload a label image">
+                        <div class="icon" aria-hidden="true">&#128247;</div>
+                        <p>Click to select or drag an image here</p>
+                    </div>
+                    <input type="file" id="image-upload" name="image"
+                           accept="image/jpeg,image/png,image/webp" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="brand-name">
+                        Expected Brand Name <span class="hint">(optional)</span>
+                    </label>
+                    <input type="text" id="brand-name" name="brand_name"
+                           placeholder="e.g., Stone Creek Vineyards" maxlength="200">
+                </div>
+
+                <div class="form-group">
+                    <label for="class-type">
+                        Expected Class/Type <span class="hint">(optional)</span>
+                    </label>
+                    <input type="text" id="class-type" name="class_type"
+                           placeholder="e.g., Cabernet Sauvignon, Bourbon Whiskey" maxlength="200">
+                </div>
+
+                <div class="form-group">
+                    <label for="expected-abv">
+                        Expected ABV % <span class="hint">(optional)</span>
+                    </label>
+                    <input type="number" id="expected-abv" name="expected_abv"
+                           placeholder="e.g., 13.5" step="0.1" min="0" max="100">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="submit-btn">
+                        Verify Label
+                    </button>
+                    <button type="reset" class="btn btn-secondary">
+                        Clear
+                    </button>
+                </div>
+            </form>
+
+            <div class="error-message" id="error-message" role="alert"></div>
+        </div>
+
+        <!-- Progress -->
+        <div class="card progress-section" id="progress-section">
+            <div class="spinner" role="status">
+                <span class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Processing...</span>
+            </div>
+            <p class="progress-text">Analyzing your label...</p>
+            <p class="progress-timer" id="progress-timer"></p>
+        </div>
+
+        <!-- Results -->
+        <div class="card results-section" id="results-section">
+            <div class="result-header" id="result-header">
+                <span class="icon" id="result-icon"></span>
+                <div>
+                    <h3 id="result-title"></h3>
+                    <p class="confidence" id="result-confidence"></p>
+                </div>
+            </div>
+
+            <table class="field-results" id="field-results">
+                <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>Expected</th>
+                        <th>Found on Label</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="field-results-body">
+                </tbody>
+            </table>
+
+            <div class="form-actions" style="margin-top: 24px">
+                <button class="btn btn-primary" onclick="resetForm()">
+                    Verify Another Label
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>TTB Label Verification System v0.1.0 &mdash; MIT License</p>
+        </div>
+    </footer>
+
+    <script>
+        const form = document.getElementById('verify-form');
+        const fileInput = document.getElementById('image-upload');
+        const uploadArea = document.getElementById('upload-area');
+        const submitBtn = document.getElementById('submit-btn');
+        const errorEl = document.getElementById('error-message');
+        const uploadCard = document.getElementById('upload-card');
+        const progressSection = document.getElementById('progress-section');
+        const resultsSection = document.getElementById('results-section');
+        const progressTimer = document.getElementById('progress-timer');
+
+        let selectedFile = null;
+
+        // Upload area interactions
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                fileInput.click();
+            }
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                handleFile(fileInput.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                showError('Please select a JPEG, PNG, or WebP image.');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                showError('Image is too large. Maximum size is 10MB.');
+                return;
+            }
+            selectedFile = file;
+            uploadArea.classList.add('has-file');
+            uploadArea.innerHTML = `
+                <div class="icon" aria-hidden="true">&#9989;</div>
+                <p>Image selected</p>
+                <p class="filename">${file.name} (${(file.size / 1024).toFixed(0)} KB)</p>
+            `;
+            hideError();
+        }
+
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!selectedFile) {
+                showError('Please select a label image to verify.');
+                return;
+            }
+
+            hideError();
+            submitBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            const brand = document.getElementById('brand-name').value.trim();
+            const classType = document.getElementById('class-type').value.trim();
+            const abv = document.getElementById('expected-abv').value.trim();
+
+            if (brand) formData.append('brand_name', brand);
+            if (classType) formData.append('class_type', classType);
+            if (abv) formData.append('expected_abv', abv);
+
+            try {
+                // Submit the verification
+                const response = await fetch('/api/v1/verify', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || 'Upload failed. Please try again.');
+                }
+
+                const data = await response.json();
+
+                // Show progress
+                uploadCard.style.display = 'none';
+                progressSection.classList.add('visible');
+
+                // Poll for results
+                await pollForResults(data.job_id);
+
+            } catch (err) {
+                showError(err.message || 'Something went wrong. Please try again.');
+                submitBtn.disabled = false;
+            }
+        });
+
+        form.addEventListener('reset', () => {
+            selectedFile = null;
+            uploadArea.classList.remove('has-file');
+            uploadArea.innerHTML = `
+                <div class="icon" aria-hidden="true">&#128247;</div>
+                <p>Click to select or drag an image here</p>
+            `;
+            hideError();
+        });
+
+        async function pollForResults(jobId) {
+            const startTime = Date.now();
+            const maxWait = 60000; // 60 seconds
+
+            while (Date.now() - startTime < maxWait) {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+                progressTimer.textContent = `Processing... ${elapsed}s`;
+
+                try {
+                    const response = await fetch(`/api/v1/verify/${jobId}`);
+                    if (!response.ok) throw new Error('Failed to check status');
+
+                    const data = await response.json();
+
+                    if (data.status === 'completed') {
+                        showResults(data);
+                        return;
+                    }
+
+                    if (data.status === 'failed') {
+                        progressSection.classList.remove('visible');
+                        uploadCard.style.display = 'block';
+                        showError(data.error || 'Verification failed. Please try again with a clearer image.');
+                        submitBtn.disabled = false;
+                        return;
+                    }
+
+                } catch (err) {
+                    // Continue polling on transient errors
+                }
+
+                await new Promise(r => setTimeout(r, 1000));
+            }
+
+            // Timeout
+            progressSection.classList.remove('visible');
+            uploadCard.style.display = 'block';
+            showError('Verification is taking longer than expected. Please try again later.');
+            submitBtn.disabled = false;
+        }
+
+        function showResults(data) {
+            progressSection.classList.remove('visible');
+            resultsSection.classList.add('visible');
+
+            const result = data.result;
+            const passed = result && result.passed;
+            const confidence = result ? (result.confidence_score * 100).toFixed(0) : 0;
+
+            const header = document.getElementById('result-header');
+            const icon = document.getElementById('result-icon');
+            const title = document.getElementById('result-title');
+            const conf = document.getElementById('result-confidence');
+
+            header.className = `result-header ${passed ? 'passed' : 'failed'}`;
+            icon.textContent = passed ? '\u2705' : '\u26A0\uFE0F';
+            title.textContent = passed ? 'All Checks Passed' : 'Issues Found';
+            conf.textContent = `Confidence: ${confidence}%`;
+
+            const tbody = document.getElementById('field-results-body');
+            tbody.innerHTML = '';
+
+            if (result && result.field_results) {
+                result.field_results.forEach(field => {
+                    const row = document.createElement('tr');
+                    const fieldName = field.field_name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    const statusClass = field.matches ? 'status-match' : 'status-mismatch';
+                    const statusText = field.matches ? 'Match' : 'Mismatch';
+                    row.innerHTML = `
+                        <td>${fieldName}</td>
+                        <td>${field.expected || '—'}</td>
+                        <td>${field.extracted || '—'}</td>
+                        <td class="${statusClass}">${statusText}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+        }
+
+        function resetForm() {
+            resultsSection.classList.remove('visible');
+            uploadCard.style.display = 'block';
+            form.reset();
+            submitBtn.disabled = false;
+            selectedFile = null;
+            uploadArea.classList.remove('has-file');
+            uploadArea.innerHTML = `
+                <div class="icon" aria-hidden="true">&#128247;</div>
+                <p>Click to select or drag an image here</p>
+            `;
+        }
+
+        function showError(msg) {
+            errorEl.textContent = msg;
+            errorEl.classList.add('visible');
+        }
+
+        function hideError() {
+            errorEl.classList.remove('visible');
+        }
+    </script>
+</body>
+</html>

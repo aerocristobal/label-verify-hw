@@ -6,6 +6,9 @@ mod routes;
 mod services;
 
 use axum::{routing::get, routing::post, Router};
+use axum::response::Html;
+use metrics_exporter_prometheus::PrometheusBuilder;
+use std::sync::Arc;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
 use tower_http::limit::RequestBodyLimitLayer;
@@ -35,6 +38,34 @@ async fn main() {
     let config = AppConfig::from_env().expect("Failed to load configuration from environment");
 
     tracing::info!("Initializing label-verify-hw server");
+
+    // Initialize Prometheus metrics recorder
+    let prometheus_handle = PrometheusBuilder::new()
+        .install_recorder()
+        .expect("Failed to install Prometheus metrics recorder");
+    let prometheus_handle = Arc::new(prometheus_handle);
+
+    // Register application metrics
+    metrics::describe_histogram!(
+        "verification_processing_seconds",
+        "Time to process a label verification job"
+    );
+    metrics::describe_counter!(
+        "verification_jobs_total",
+        "Total verification jobs submitted"
+    );
+    metrics::describe_counter!(
+        "verification_jobs_completed",
+        "Total verification jobs completed"
+    );
+    metrics::describe_counter!(
+        "verification_jobs_failed",
+        "Total verification jobs that failed"
+    );
+    metrics::describe_gauge!(
+        "verification_queue_depth",
+        "Current number of pending jobs in the queue"
+    );
 
     // Initialize database connection pool
     tracing::info!("Connecting to PostgreSQL database");
@@ -77,6 +108,9 @@ async fn main() {
 
     // Build API routes
     let app = Router::new()
+        // Static UI (embedded at compile time)
+        .route("/", get(|| async { Html(include_str!("../static/index.html")) }))
+        // API endpoints
         .route("/health", get(routes::health::health_check))
         .route("/api/v1/verify", post(routes::verify::submit_verification))
         .route(
@@ -84,6 +118,11 @@ async fn main() {
             get(routes::verify::get_job_status),
         )
         .with_state(state)
+        // Prometheus metrics endpoint (separate state)
+        .route(
+            "/metrics",
+            get(routes::metrics::prometheus_metrics).with_state(prometheus_handle),
+        )
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
         .layer(CorsLayer::permissive())

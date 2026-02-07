@@ -25,8 +25,9 @@ RUN mkdir src && \
 RUN cargo build --release && \
     rm -rf src
 
-# Copy actual source code
+# Copy actual source code and assets
 COPY src ./src
+COPY static ./static
 COPY migrations ./migrations
 
 # Build release binary
