@@ -21,4 +21,5 @@ pub async fn run_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
         .map_err(|e| sqlx::Error::Migrate(Box::new(e)))
 }
 
+pub mod beverage_queries;
 pub mod queries;

@@ -1,6 +1,7 @@
 use garde::Validate;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
+use uuid::Uuid;
 
 /// TTB beverage class designations per 27 CFR Parts 4, 5, 7.
 #[derive(Debug, Clone, Serialize, Deserialize, EnumString, Display, PartialEq)]
@@ -39,6 +40,16 @@ pub struct VerificationResult {
     pub passed: bool,
     pub field_results: Vec<FieldVerification>,
     pub confidence_score: f64,
+
+    // Database matching information
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub matched_beverage_id: Option<Uuid>,
+    pub match_type: String, // "exact", "fuzzy", "category_only", "no_match"
+    pub match_confidence: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub abv_deviation: Option<f64>, // Difference from database ABV
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category_rule_applied: Option<String>, // Which category rule was used
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

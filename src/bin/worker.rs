@@ -1,7 +1,8 @@
 use label_verify_hw::{
     app_state::AppState,
     config::AppConfig,
-    db::{self, queries},
+    db::{self, beverage_queries, queries},
+    models::beverage::NewMatchHistory,
     models::job::JobStatus,
     services::{
         encryption::EncryptionService, ocr::WorkersAiClient, queue::JobQueue, storage::R2Client,
@@ -218,22 +219,43 @@ async fn process_job_inner(
         "OCR extraction complete"
     );
 
-    // Validate extracted fields
-    tracing::debug!(job_id = %job.job_id, "Validating fields");
-    let verification_result = validation::verify_label(
+    // Validate extracted fields with database-backed checks
+    tracing::debug!(job_id = %job.job_id, "Validating fields (with database cross-reference)");
+    let verification_result = validation::verify_label_with_database(
+        &state.db,
         &extracted_fields,
         job.expected_brand.as_deref(),
         job.expected_class.as_deref(),
         job.expected_abv,
-    );
+    )
+    .await?;
 
     tracing::info!(
         job_id = %job.job_id,
         passed = verification_result.passed,
         confidence = verification_result.confidence_score,
+        match_type = %verification_result.match_type,
+        matched_beverage = ?verification_result.matched_beverage_id,
         issues_count = verification_result.field_results.iter().filter(|f| !f.matches).count(),
         "Validation complete"
     );
+
+    // Record match history for analytics
+    let match_history = NewMatchHistory {
+        job_id: job.job_id,
+        matched_beverage_id: verification_result.matched_beverage_id,
+        match_type: verification_result.match_type.clone(),
+        match_confidence: Some(verification_result.match_confidence),
+        abv_deviation: verification_result.abv_deviation,
+    };
+
+    if let Err(e) = beverage_queries::record_match_history(&state.db, match_history).await {
+        tracing::warn!(
+            job_id = %job.job_id,
+            error = %e,
+            "Failed to record match history (non-fatal)"
+        );
+    }
 
     Ok(verification_result)
 }

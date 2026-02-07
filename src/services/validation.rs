@@ -1,5 +1,8 @@
+use sqlx::PgPool;
 use strsim::jaro_winkler;
 
+use crate::db::beverage_queries;
+use crate::models::beverage::NewMatchHistory;
 use crate::models::label::{ExtractedLabelFields, FieldVerification, VerificationResult};
 use crate::services::ttb_standards;
 
@@ -202,7 +205,194 @@ pub fn verify_label(
         passed,
         field_results,
         confidence_score,
+        matched_beverage_id: None,
+        match_type: "no_match".to_string(),
+        match_confidence: 0.0,
+        abv_deviation: None,
+        category_rule_applied: None,
     }
+}
+
+/// Enhanced validation with database-backed beverage reference checking.
+///
+/// This async version performs:
+/// 1. Exact database lookup by brand + class/type
+/// 2. ABV consistency check against known products
+/// 3. Category ABV range validation (wine: 5-24%, spirits: 30-95%, beer: 0.5-15%)
+/// 4. Fuzzy matching fallback (same as verify_label)
+/// 5. Recording of match history for analytics
+pub async fn verify_label_with_database(
+    pool: &PgPool,
+    extracted: &ExtractedLabelFields,
+    expected_brand: Option<&str>,
+    expected_class: Option<&str>,
+    expected_abv: Option<f64>,
+) -> Result<VerificationResult, sqlx::Error> {
+    // Start with base validation (non-database checks)
+    let mut result = verify_label(extracted, expected_brand, expected_class, expected_abv);
+
+    // ── Database Exact Match Lookup ──────────────────────────────────
+    let db_matches = if !extracted.brand_name.is_empty() && !extracted.class_type.is_empty() {
+        beverage_queries::find_known_beverage(pool, &extracted.brand_name, &extracted.class_type)
+            .await?
+    } else {
+        Vec::new()
+    };
+
+    if let Some(db_match) = db_matches.first() {
+        // Found exact match in database
+        result.matched_beverage_id = Some(db_match.id);
+        result.match_type = "exact".to_string();
+        result.match_confidence = 1.0;
+
+        // Check ABV consistency
+        let abv_diff = (extracted.abv - db_match.abv).abs();
+        result.abv_deviation = Some(abv_diff);
+
+        if abv_diff > 1.0 {
+            // Flag: ABV differs by >1% from known product
+            result.field_results.push(FieldVerification {
+                field_name: "abv_database_match".to_string(),
+                expected: Some(format!("{:.1}%", db_match.abv)),
+                extracted: format!("{:.1}%", extracted.abv),
+                matches: false,
+                similarity_score: (1.0 - (abv_diff / 100.0)).max(0.0),
+            });
+            result.passed = false;
+        } else {
+            // ABV is consistent with database
+            result.field_results.push(FieldVerification {
+                field_name: "abv_database_match".to_string(),
+                expected: Some(format!("{:.1}%", db_match.abv)),
+                extracted: format!("{:.1}%", extracted.abv),
+                matches: true,
+                similarity_score: 1.0 - (abv_diff / 100.0),
+            });
+        }
+    } else {
+        // No exact match - try fuzzy brand-only match
+        let brand_matches = if !extracted.brand_name.is_empty() {
+            beverage_queries::find_known_beverage_by_brand(pool, &extracted.brand_name).await?
+        } else {
+            Vec::new()
+        };
+
+        if let Some(fuzzy_match) = brand_matches.first() {
+            // Found brand but not exact class/type
+            result.matched_beverage_id = Some(fuzzy_match.id);
+            result.match_type = "fuzzy".to_string();
+
+            // Calculate fuzzy match confidence based on class/type similarity
+            let class_similarity = jaro_winkler(
+                &extracted.class_type.to_lowercase(),
+                &fuzzy_match.class_type.to_lowercase(),
+            );
+            result.match_confidence = class_similarity;
+
+            // Check ABV consistency
+            let abv_diff = (extracted.abv - fuzzy_match.abv).abs();
+            result.abv_deviation = Some(abv_diff);
+
+            if abv_diff > 2.0 {
+                // More lenient threshold for fuzzy matches
+                result.field_results.push(FieldVerification {
+                    field_name: "abv_database_fuzzy_match".to_string(),
+                    expected: Some(format!(
+                        "{:.1}% (from similar product: {})",
+                        fuzzy_match.abv, fuzzy_match.class_type
+                    )),
+                    extracted: format!("{:.1}%", extracted.abv),
+                    matches: false,
+                    similarity_score: (1.0 - (abv_diff / 100.0)).max(0.0),
+                });
+                result.passed = false;
+            }
+        }
+    }
+
+    // ── Category ABV Range Validation ────────────────────────────────
+    if let Some(category_rule) =
+        beverage_queries::get_category_rule(pool, &extracted.class_type).await?
+    {
+        result.category_rule_applied = Some(format!(
+            "{} ({:.1}-{:.1}% ABV)",
+            category_rule.category, category_rule.min_abv, category_rule.max_abv
+        ));
+
+        // Check if ABV is within valid range
+        if extracted.abv < category_rule.min_abv || extracted.abv > category_rule.max_abv {
+            result.field_results.push(FieldVerification {
+                field_name: "abv_category_range".to_string(),
+                expected: Some(format!(
+                    "{:.1}-{:.1}% ({}, per {})",
+                    category_rule.min_abv,
+                    category_rule.max_abv,
+                    category_rule.category,
+                    category_rule
+                        .cfr_reference
+                        .as_deref()
+                        .unwrap_or("27 CFR")
+                )),
+                extracted: format!("{:.1}%", extracted.abv),
+                matches: false,
+                similarity_score: 0.0,
+            });
+            result.passed = false;
+
+            // If no match type yet, set to category_only
+            if result.match_type == "no_match" {
+                result.match_type = "category_only".to_string();
+            }
+        } else {
+            // Check if within typical range (informational)
+            if let (Some(typical_min), Some(typical_max)) =
+                (category_rule.typical_min_abv, category_rule.typical_max_abv)
+            {
+                if extracted.abv < typical_min || extracted.abv > typical_max {
+                    result.field_results.push(FieldVerification {
+                        field_name: "abv_category_typical_range".to_string(),
+                        expected: Some(format!(
+                            "{:.1}-{:.1}% (typical for {})",
+                            typical_min, typical_max, category_rule.category
+                        )),
+                        extracted: format!("{:.1}% (unusual but valid)", extracted.abv),
+                        matches: true, // Valid but flagged as unusual
+                        similarity_score: 0.7,
+                    });
+                }
+            }
+        }
+    }
+
+    // ── Overall Logical Consistency Check ────────────────────────────
+    // Flag if major inconsistencies detected
+    let has_major_inconsistency = result
+        .field_results
+        .iter()
+        .any(|f| !f.matches && (f.field_name.contains("abv_database") || f.field_name.contains("abv_category")));
+
+    if has_major_inconsistency {
+        result.field_results.push(FieldVerification {
+            field_name: "logical_consistency".to_string(),
+            expected: Some(format!(
+                "{} with appropriate ABV for category",
+                extracted.class_type
+            )),
+            extracted: format!("{} with {:.1}% ABV (inconsistent)", extracted.class_type, extracted.abv),
+            matches: false,
+            similarity_score: 0.0,
+        });
+    }
+
+    // Recalculate confidence score with new field results
+    result.confidence_score = if result.field_results.is_empty() {
+        0.0
+    } else {
+        result.field_results.iter().map(|f| f.similarity_score).sum::<f64>()
+            / result.field_results.len() as f64
+    };
+
+    Ok(result)
 }
 
 #[cfg(test)]
