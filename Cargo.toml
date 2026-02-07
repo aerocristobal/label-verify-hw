@@ -1,0 +1,51 @@
+[package]
+name = "label-verify-hw"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "TTB label verification system using Cloudflare Workers AI"
+
+[dependencies]
+# Core framework
+axum = { version = "0.8", features = ["multipart"] }
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors", "compression-gzip", "limit", "trace"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Cloudflare integration
+reqwest = { version = "0.12", features = ["json", "multipart"] }
+rust-s3 = { version = "0.35", default-features = false, features = ["tokio-rustls-tls"] }
+
+# Data & security
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json"] }
+aes-gcm = "0.10"
+jsonwebtoken = "9"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Validation & matching
+garde = { version = "0.21", features = ["derive", "serde"] }
+strsim = "0.11"
+strum = { version = "0.27", features = ["derive"] }
+
+# Image handling
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
+
+# Job queue
+redis = { version = "0.27", features = ["tokio-comp"] }
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.22"
+dotenvy = "0.15"
+envy = "0.4"
+thiserror = "2"
+
+[dev-dependencies]
+tokio-test = "0.4"

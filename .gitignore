@@ -1,0 +1,21 @@
+# Rust build artifacts
+/target
+Cargo.lock
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Utility scripts (one-time use)
+create-issues.sh
