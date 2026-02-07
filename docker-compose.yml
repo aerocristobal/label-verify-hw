@@ -50,8 +50,8 @@ services:
       - "3000:3000"
     environment:
       BIND_ADDR: 0.0.0.0:3000
-      DATABASE_URL: postgresql://labelverify:${DB_PASSWORD}@postgres:5432/labelverify_prod
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      DATABASE_URL: ${DOCKER_DATABASE_URL}
+      REDIS_URL: ${DOCKER_REDIS_URL}
       CF_ACCOUNT_ID: ${CF_ACCOUNT_ID}
       CF_API_TOKEN: ${CF_API_TOKEN}
       R2_BUCKET: ${R2_BUCKET}
@@ -82,8 +82,8 @@ services:
       dockerfile: Dockerfile.worker
     container_name: labelverify-worker
     environment:
-      DATABASE_URL: postgresql://labelverify:${DB_PASSWORD}@postgres:5432/labelverify_prod
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      DATABASE_URL: ${DOCKER_DATABASE_URL}
+      REDIS_URL: ${DOCKER_REDIS_URL}
       CF_ACCOUNT_ID: ${CF_ACCOUNT_ID}
       CF_API_TOKEN: ${CF_API_TOKEN}
       R2_BUCKET: ${R2_BUCKET}

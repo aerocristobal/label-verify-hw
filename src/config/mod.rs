@@ -2,7 +2,8 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
-    /// Server bind address (e.g., "0.0.0.0:3000")
+    /// Server bind address (e.g., "0.0.0.0:3000"). Optional for worker processes.
+    #[serde(default = "default_bind_addr")]
     pub bind_addr: String,
 
     /// PostgreSQL connection string
@@ -31,6 +32,10 @@ pub struct AppConfig {
 
     /// AES-256-GCM encryption key (base64-encoded, 32 bytes)
     pub encryption_key: String,
+}
+
+fn default_bind_addr() -> String {
+    "0.0.0.0:3000".to_string()
 }
 
 impl AppConfig {

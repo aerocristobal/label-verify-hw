@@ -114,7 +114,7 @@ async fn main() {
         .route("/health", get(routes::health::health_check))
         .route("/api/v1/verify", post(routes::verify::submit_verification))
         .route(
-            "/api/v1/verify/:job_id",
+            "/api/v1/verify/{job_id}",
             get(routes::verify::get_job_status),
         )
         .with_state(state)
