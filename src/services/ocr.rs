@@ -1,5 +1,8 @@
+use image::imageops::FilterType;
+use image::ImageFormat;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::io::Cursor;
 
 use crate::models::label::ExtractedLabelFields;
 
@@ -49,6 +52,58 @@ impl WorkersAiClient {
         })
     }
 
+    /// Resize image if it exceeds Workers AI limits (~1MB as JSON array).
+    /// Target: max 1024px on longest edge, JPEG quality 85.
+    fn resize_if_needed(&self, image_bytes: &[u8]) -> Result<Vec<u8>, OcrError> {
+        const MAX_DIMENSION: u32 = 1024;
+        const JPEG_QUALITY: u8 = 85;
+
+        // Load image
+        let img = image::load_from_memory(image_bytes)
+            .map_err(|e| OcrError::ImageProcessing(format!("Failed to decode image: {}", e)))?;
+
+        let width = img.width();
+        let height = img.height();
+        let max_side = width.max(height);
+
+        // If already small enough, return as-is
+        if max_side <= MAX_DIMENSION && image_bytes.len() < 800_000 {
+            return Ok(image_bytes.to_vec());
+        }
+
+        tracing::info!(
+            original_size = image_bytes.len(),
+            original_dims = ?(width, height),
+            "Resizing image for Workers AI"
+        );
+
+        // Calculate new dimensions maintaining aspect ratio
+        let (new_width, new_height) = if width > height {
+            (MAX_DIMENSION, (height as f64 * MAX_DIMENSION as f64 / width as f64) as u32)
+        } else {
+            ((width as f64 * MAX_DIMENSION as f64 / height as f64) as u32, MAX_DIMENSION)
+        };
+
+        // Resize with high-quality filter
+        let resized = img.resize(new_width, new_height, FilterType::Lanczos3);
+
+        // Re-encode as JPEG
+        let mut buf = Vec::new();
+        let mut cursor = Cursor::new(&mut buf);
+        resized
+            .write_to(&mut cursor, ImageFormat::Jpeg)
+            .map_err(|e| OcrError::ImageProcessing(format!("Failed to encode JPEG: {}", e)))?;
+
+        tracing::info!(
+            resized_size = buf.len(),
+            resized_dims = ?(new_width, new_height),
+            compression_ratio = format!("{:.1}%", (buf.len() as f64 / image_bytes.len() as f64) * 100.0),
+            "Image resized successfully"
+        );
+
+        Ok(buf)
+    }
+
     /// Send a label image to Workers AI LLaVA and extract structured fields.
     pub async fn extract_label_fields(
         &self,
@@ -67,8 +122,11 @@ impl WorkersAiClient {
             "Return ONLY valid JSON with these exact field names."
         );
 
+        // Resize image if needed to avoid Workers AI payload size limits
+        let processed_bytes = self.resize_if_needed(image_bytes)?;
+
         // Workers AI LLaVA expects image as raw byte array [u8], not base64
-        let image_array: Vec<u8> = image_bytes.to_vec();
+        let image_array: Vec<u8> = processed_bytes;
         let request_body = LlavaRequest {
             image: image_array,
             prompt: prompt.to_string(),
@@ -147,6 +205,9 @@ pub enum OcrError {
 
     #[error("Workers AI API error: {0}")]
     Api(String),
+
+    #[error("Image processing error: {0}")]
+    ImageProcessing(String),
 
     #[error("Failed to parse LLaVA response as structured fields: {0}")]
     Parse(#[from] serde_json::Error),
