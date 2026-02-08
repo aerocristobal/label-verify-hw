@@ -1467,6 +1467,7 @@ dependencies = [
  "chrono",
  "dotenvy",
  "envy",
+ "futures",
  "garde",
  "image",
  "jsonwebtoken",

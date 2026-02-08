@@ -1,5 +1,24 @@
 #!/usr/bin/env python3
 """
+⚠️  DEPRECATED - This script has been replaced by seed_ttb_cola_cache.py
+
+This script previously generated synthetic Total Wine data for testing.
+For production use, please use the official TTB COLA data source instead:
+
+    python3 scripts/seed_ttb_cola_cache.py --limit 100 --category all
+
+Why TTB COLA is better:
+- Official government database (authoritative source)
+- All U.S. alcohol products must have COLA approval
+- No ethical concerns about commercial web scraping
+- Verified brand names, class/types, and origins
+
+Documentation:
+    See docs/TTB_COLA_INTEGRATION.md for full details
+
+Legacy documentation below (for reference only):
+---
+
 Seed known_beverages database with product data from Total Wine.
 
 This script scrapes beverage data (wine, spirits, beer) from Total Wine's website

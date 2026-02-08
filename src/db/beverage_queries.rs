@@ -1,5 +1,6 @@
 use sqlx::PgPool;
 use uuid::Uuid;
+use chrono::{DateTime, Utc};
 
 use crate::models::beverage::{BeverageCategoryRule, KnownBeverage, NewMatchHistory};
 
@@ -48,6 +49,37 @@ pub async fn find_known_beverage_by_brand(
     )
     .fetch_all(pool)
     .await
+}
+
+/// Check if a cache entry is stale (older than threshold)
+///
+/// Default threshold: 30 days
+///
+/// Returns true if the entry is older than the threshold and should be refreshed.
+pub fn is_cache_stale(created_at: DateTime<Utc>, threshold_days: i64) -> bool {
+    let now = Utc::now();
+    let age = now.signed_duration_since(created_at);
+    age.num_days() > threshold_days
+}
+
+/// Find known beverage with cache freshness information
+///
+/// Returns tuple of (beverage, is_stale) where is_stale indicates if the cache entry
+/// is older than 30 days and should be refreshed.
+pub async fn find_known_beverage_with_staleness(
+    pool: &PgPool,
+    brand: &str,
+    class_type: &str,
+    staleness_threshold_days: i64,
+) -> Result<Option<(KnownBeverage, bool)>, sqlx::Error> {
+    let beverages = find_known_beverage(pool, brand, class_type).await?;
+
+    if let Some(beverage) = beverages.first() {
+        let is_stale = is_cache_stale(beverage.created_at, staleness_threshold_days);
+        Ok(Some((beverage.clone(), is_stale)))
+    } else {
+        Ok(None)
+    }
 }
 
 /// Get category rule for a beverage class/type
@@ -177,5 +209,32 @@ mod tests {
         assert_eq!(infer_category_from_class("IPA"), "malt_beverage");
         assert_eq!(infer_category_from_class("Lager Beer"), "malt_beverage");
         assert_eq!(infer_category_from_class("Stout"), "malt_beverage");
+    }
+
+    #[test]
+    fn test_is_cache_stale() {
+        use chrono::{Duration, Utc};
+
+        let now = Utc::now();
+
+        // Fresh entry (1 day old)
+        let fresh = now - Duration::days(1);
+        assert!(!is_cache_stale(fresh, 30), "1-day-old entry should not be stale");
+
+        // Borderline entry (30 days old)
+        let borderline = now - Duration::days(30);
+        assert!(!is_cache_stale(borderline, 30), "30-day-old entry should not be stale");
+
+        // Stale entry (31 days old)
+        let stale = now - Duration::days(31);
+        assert!(is_cache_stale(stale, 30), "31-day-old entry should be stale");
+
+        // Very stale entry (90 days old)
+        let very_stale = now - Duration::days(90);
+        assert!(is_cache_stale(very_stale, 30), "90-day-old entry should be stale");
+
+        // Custom threshold (7 days)
+        let week_old = now - Duration::days(8);
+        assert!(is_cache_stale(week_old, 7), "8-day-old entry should be stale with 7-day threshold");
     }
 }

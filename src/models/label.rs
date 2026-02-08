@@ -50,6 +50,10 @@ pub struct VerificationResult {
     pub abv_deviation: Option<f64>, // Difference from database ABV
     #[serde(skip_serializing_if = "Option::is_none")]
     pub category_rule_applied: Option<String>, // Which category rule was used
+
+    // Warnings (non-fatal issues like stale cache)
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

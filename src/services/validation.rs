@@ -11,6 +11,9 @@ const MATCH_THRESHOLD: f64 = 0.85;
 /// TTB-mandated ABV tolerance: ±0.3 percentage points.
 const ABV_TOLERANCE: f64 = 0.3;
 
+/// Cache staleness threshold in days (30 days).
+const CACHE_STALENESS_THRESHOLD_DAYS: i64 = 30;
+
 /// Validate extracted label fields against expected values and TTB rules.
 ///
 /// Performs:
@@ -209,6 +212,7 @@ pub fn verify_label(
         match_confidence: 0.0,
         abv_deviation: None,
         category_rule_applied: None,
+        warnings: Vec::new(),
     }
 }
 
@@ -230,19 +234,34 @@ pub async fn verify_label_with_database(
     // Start with base validation (non-database checks)
     let mut result = verify_label(extracted, expected_brand, expected_class, expected_abv);
 
-    // ── Database Exact Match Lookup ──────────────────────────────────
-    let db_matches = if !extracted.brand_name.is_empty() && !extracted.class_type.is_empty() {
-        beverage_queries::find_known_beverage(pool, &extracted.brand_name, &extracted.class_type)
-            .await?
+    // ── Database Exact Match Lookup with Staleness Check ─────────────
+    let db_match_with_staleness = if !extracted.brand_name.is_empty() && !extracted.class_type.is_empty() {
+        beverage_queries::find_known_beverage_with_staleness(
+            pool,
+            &extracted.brand_name,
+            &extracted.class_type,
+            CACHE_STALENESS_THRESHOLD_DAYS,
+        )
+        .await?
     } else {
-        Vec::new()
+        None
     };
 
-    if let Some(db_match) = db_matches.first() {
+    if let Some((db_match, is_stale)) = db_match_with_staleness {
         // Found exact match in database
         result.matched_beverage_id = Some(db_match.id);
         result.match_type = "exact".to_string();
         result.match_confidence = 1.0;
+
+        // Warn if cache is stale
+        if is_stale {
+            result.warnings.push(format!(
+                "Database cache entry is older than {} days. Consider refreshing TTB COLA data for brand '{}' (source: {}).",
+                CACHE_STALENESS_THRESHOLD_DAYS,
+                db_match.brand_name,
+                db_match.source
+            ));
+        }
 
         // Check ABV consistency
         let abv_diff = (extracted.abv - db_match.abv).abs();
