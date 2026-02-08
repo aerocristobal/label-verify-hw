@@ -1,46 +1,6 @@
 # Deployment Guide - Quick Start
 
-⚠️ **IMPORTANT: If you're seeing Cloudflare Pages build errors, [click here](#cloudflare-pages-build-error-fix)**
-
 This guide covers deploying label-verify-hw to production using Docker and Cloudflare.
-
----
-
-## 🚨 Cloudflare Pages Build Error Fix
-
-**Are you seeing this error?**
-```
-❌ Error: .env.prod not found
-Failed: error occurred while running deploy command
-```
-
-**This is a Rust API service with database dependencies - it CANNOT run on Cloudflare Pages.**
-
-Cloudflare Pages is for static sites and edge functions. This service requires:
-- Rust runtime ❌
-- PostgreSQL database ❌
-- Redis queue ❌
-- Long-running processes ❌
-
-### Quick Fix (Temporary)
-
-**Option 1: Update Cloudflare Pages Settings**
-1. Go to your Cloudflare Pages project → **Settings** → **Builds & deployments**
-2. Change **Build command** to: `./build-cloudflare.sh`
-3. Change **Build output directory** to: `dist`
-4. Save and retry deployment
-
-This creates a placeholder page explaining the issue.
-
-**Option 2: Proper Deployment (Recommended)**
-
-Deploy to a container platform instead:
-- **Fly.io** (recommended for Rust): [See instructions](#flyio-deployment)
-- **Railway**: [See instructions](#railway-deployment)
-- **Render**: [See instructions](#render-deployment)
-- **Docker Compose (VPS)**: [See instructions below](#-quick-deploy-docker--cloudflare-tunnel)
-
----
 
 ## 🚀 Quick Deploy (Docker + Cloudflare Tunnel)
 
@@ -238,81 +198,7 @@ cat ./backups/YYYYMMDD_HHMMSS/database.sql | \
 ./deploy.sh deploy
 ```
 
-## 🌐 Recommended Platforms (Alternatives to Cloudflare Pages)
-
-### Fly.io Deployment
-
-**Best for:** Rust applications, global deployment, managed databases
-
-```bash
-# Install flyctl
-curl -L https://fly.io/install.sh | sh
-
-# Login
-fly auth login
-
-# Launch app (from project root)
-fly launch --name label-verify-hw
-
-# Create PostgreSQL
-fly postgres create --name label-verify-db
-
-# Create Redis
-fly redis create --name label-verify-redis
-
-# Set secrets
-fly secrets set \
-  DATABASE_URL="postgresql://..." \
-  REDIS_URL="redis://..." \
-  CF_ACCOUNT_ID="your-account-id" \
-  CF_API_TOKEN="your-api-token" \
-  R2_BUCKET="your-bucket" \
-  R2_ACCESS_KEY="your-key" \
-  R2_SECRET_KEY="your-secret" \
-  R2_ENDPOINT="https://..." \
-  ENCRYPTION_KEY="$(openssl rand -base64 32)"
-
-# Deploy
-fly deploy
-```
-
-**Resources:** [Fly.io Rust Guide](https://fly.io/docs/languages-and-frameworks/rust/)
-
----
-
-### Railway Deployment
-
-**Best for:** Simple setup, includes databases, GitHub integration
-
-1. Go to [railway.app](https://railway.app)
-2. Click **"New Project"** → **"Deploy from GitHub repo"**
-3. Select `label-verify-hw` repository
-4. Add **PostgreSQL** and **Redis** services
-5. In **Variables** tab, add all environment variables
-6. Deploy automatically on git push
-
-**Resources:** [Railway Rust Guide](https://docs.railway.app/guides/rust)
-
----
-
-### Render Deployment
-
-**Best for:** Free tier, Docker support, managed databases
-
-1. Go to [render.com](https://render.com)
-2. Click **"New"** → **"Web Service"**
-3. Connect GitHub repository
-4. Choose **Docker** runtime
-5. Set **Dockerfile path**: `Dockerfile.api`
-6. Add PostgreSQL and Redis from Render dashboard
-7. Configure environment variables
-8. Deploy
-
-**Resources:** [Render Docker Deployment](https://render.com/docs/docker)
-
----
-
-## 🌐 Self-Hosted Deployment Platforms
+## 🌐 Deployment Platforms
 
 ### DigitalOcean
 
