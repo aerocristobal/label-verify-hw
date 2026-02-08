@@ -300,6 +300,202 @@
 
         .error-message.visible { display: block; }
 
+        /* Compliance Legend */
+        .compliance-legend {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #2563eb;
+        }
+
+        .compliance-legend h4 {
+            margin: 0 0 10px 0;
+            font-size: 0.95rem;
+            color: #1e3a5f;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.875rem;
+        }
+
+        .icon-compliant { color: #22c55e; margin-right: 5px; font-weight: bold; }
+        .icon-non-compliant { color: #ef4444; margin-right: 5px; font-weight: bold; }
+        .icon-warning { color: #f59e0b; margin-right: 5px; font-weight: bold; }
+        .icon-info { color: #3b82f6; margin-right: 5px; font-weight: bold; }
+
+        /* Table Row Classes */
+        tr.row-compliant { background: #f0fdf4; }
+        tr.row-non-compliant { background: #fef2f2; }
+        tr.row-warning { background: #fffbeb; }
+        tr.row-info { background: #eff6ff; }
+
+        /* Validation Type */
+        .validation-type {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            background: #e5e7eb;
+            white-space: nowrap;
+        }
+
+        /* Result Display */
+        .result-match {
+            color: #22c55e;
+            font-weight: 500;
+        }
+
+        .result-mismatch {
+            color: #ef4444;
+            font-weight: 500;
+        }
+
+        .result-extracted {
+            color: #6b7280;
+        }
+
+        /* Compliance Status */
+        .status-compliant {
+            color: #22c55e;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .status-non-compliant {
+            color: #ef4444;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .status-warning {
+            color: #f59e0b;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .status-info {
+            color: #3b82f6;
+            font-weight: 500;
+            font-size: 1.1rem;
+        }
+
+        /* Details Button */
+        .details-btn {
+            width: 32px;
+            height: 32px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .details-btn:hover {
+            background: #f3f4f6;
+            border-color: #2563eb;
+            color: #2563eb;
+        }
+
+        /* Detail Row */
+        .detail-row {
+            background: #f9fafb;
+        }
+
+        .detail-row.hidden {
+            display: none;
+        }
+
+        .detail-panel {
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .detail-content {
+            display: grid;
+            gap: 20px;
+        }
+
+        .detail-section h4 {
+            margin: 0 0 12px 0;
+            font-size: 0.95rem;
+            color: #1e3a5f;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 6px;
+        }
+
+        .comparison-row {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 15px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .comparison-row:last-child {
+            border-bottom: none;
+        }
+
+        .comparison-row .label {
+            font-weight: 600;
+            color: #6b7280;
+        }
+
+        .comparison-row .value {
+            color: #1f2937;
+        }
+
+        .comparison-row .value.code {
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            background: #f3f4f6;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        /* Compliance Box */
+        .compliance-box {
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid;
+            margin-top: 10px;
+        }
+
+        .compliance-box.compliant {
+            background: #f0fdf4;
+            border-color: #22c55e;
+            color: #15803d;
+        }
+
+        .compliance-box.non-compliant {
+            background: #fef2f2;
+            border-color: #ef4444;
+            color: #b91c1c;
+        }
+
+        .compliance-box .icon {
+            font-size: 1.25rem;
+            margin-right: 8px;
+        }
+
+        .critical {
+            color: #dc2626;
+            font-weight: 600;
+        }
+
         /* Footer */
         footer {
             text-align: center;
@@ -316,6 +512,9 @@
             .btn { width: 100%; }
             .field-results th,
             .field-results td { padding: 8px 10px; font-size: 0.875rem; }
+            .legend-items { flex-direction: column; gap: 8px; }
+            .comparison-row { grid-template-columns: 1fr; gap: 5px; }
+            .comparison-row .label::after { content: ':'; }
         }
 
         /* Skip link for keyboard users */
@@ -417,13 +616,25 @@
                 </div>
             </div>
 
+            <!-- Compliance Legend -->
+            <div class="compliance-legend">
+                <h4>Compliance Status:</h4>
+                <div class="legend-items">
+                    <span class="legend-item"><span class="icon-compliant">✓</span> Compliant - Meets TTB requirements</span>
+                    <span class="legend-item"><span class="icon-non-compliant">✗</span> Non-Compliant - Fails TTB requirements</span>
+                    <span class="legend-item"><span class="icon-warning">⚠</span> Warning - Unusual but valid</span>
+                    <span class="legend-item"><span class="icon-info">ℹ</span> Info - Informational check</span>
+                </div>
+            </div>
+
             <table class="field-results" id="field-results">
                 <thead>
                     <tr>
                         <th>Field</th>
-                        <th>Expected</th>
-                        <th>Found on Label</th>
-                        <th>Status</th>
+                        <th>Validation Type</th>
+                        <th>Result</th>
+                        <th>Compliance</th>
+                        <th style="width: 50px;">Details</th>
                     </tr>
                 </thead>
                 <tbody id="field-results-body">
@@ -615,35 +826,315 @@
 
             const result = data.result;
             const passed = result && result.passed;
-            const confidence = result ? (result.confidence_score * 100).toFixed(0) : 0;
 
+            displayResultSummary(result, passed);
+            renderFieldResults(result);
+        }
+
+        function displayResultSummary(result, passed) {
             const header = document.getElementById('result-header');
             const icon = document.getElementById('result-icon');
             const title = document.getElementById('result-title');
             const conf = document.getElementById('result-confidence');
 
-            header.className = `result-header ${passed ? 'passed' : 'failed'}`;
-            icon.textContent = passed ? '\u2705' : '\u26A0\uFE0F';
-            title.textContent = passed ? 'All Checks Passed' : 'Issues Found';
-            conf.textContent = `Confidence: ${confidence}%`;
+            // Count compliance statuses
+            const compliant = result.field_results.filter(f => f.matches).length;
+            const nonCompliant = result.field_results.filter(f => !f.matches).length;
+            const critical = result.field_results.filter(f =>
+                !f.matches && (
+                    f.field_name.toLowerCase().includes('government_warning') ||
+                    f.field_name.toLowerCase().includes('required') ||
+                    f.field_name.toLowerCase().includes('ttb_valid')
+                )
+            ).length;
 
+            header.className = `result-header ${passed ? 'passed' : 'failed'}`;
+            icon.textContent = passed ? '✓' : '✗';
+
+            // Enhanced summary
+            if (passed) {
+                title.innerHTML = `All Checks Compliant`;
+                conf.innerHTML = `
+                    <strong>${compliant} checks compliant</strong><br>
+                    <small>Overall Confidence: ${Math.round(result.confidence_score * 100)}%</small>
+                `;
+            } else {
+                title.innerHTML = critical > 0 ?
+                    `Label CANNOT be approved` :
+                    `Issues Found`;
+                conf.innerHTML = `
+                    <strong>✓ ${compliant} compliant | ✗ ${nonCompliant} non-compliant</strong><br>
+                    ${critical > 0 ? `<small class="critical">⚠ ${critical} critical issue(s) require action</small><br>` : ''}
+                    <small>Overall Confidence: ${Math.round(result.confidence_score * 100)}%</small>
+                `;
+            }
+        }
+
+        function renderFieldResults(result) {
             const tbody = document.getElementById('field-results-body');
             tbody.innerHTML = '';
 
-            if (result && result.field_results) {
-                result.field_results.forEach(field => {
-                    const row = document.createElement('tr');
-                    const fieldName = field.field_name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                    const statusClass = field.matches ? 'status-match' : 'status-mismatch';
-                    const statusText = field.matches ? 'Match' : 'Mismatch';
-                    row.innerHTML = `
-                        <td>${fieldName}</td>
-                        <td>${field.expected || '—'}</td>
-                        <td>${field.extracted || '—'}</td>
-                        <td class="${statusClass}">${statusText}</td>
-                    `;
-                    tbody.appendChild(row);
-                });
+            if (!result || !result.field_results) return;
+
+            result.field_results.forEach((field, index) => {
+                const row = document.createElement('tr');
+                row.className = getRowClass(field);
+
+                const validationType = getValidationType(field);
+                const resultDisplay = getResultDisplay(field);
+                const complianceStatus = getComplianceStatus(field);
+                const detailsBtn = `<button class="details-btn" onclick="toggleDetails(${index})" aria-label="Show details">+</button>`;
+
+                row.innerHTML = `
+                    <td><strong>${formatFieldName(field.field_name)}</strong></td>
+                    <td>${validationType}</td>
+                    <td>${resultDisplay}</td>
+                    <td>${complianceStatus}</td>
+                    <td style="text-align: center;">${detailsBtn}</td>
+                `;
+
+                tbody.appendChild(row);
+
+                // Add hidden detail row
+                const detailRow = createDetailRow(field, index);
+                tbody.appendChild(detailRow);
+            });
+        }
+
+        function formatFieldName(fieldName) {
+            return fieldName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function getRowClass(field) {
+            const fieldName = field.field_name.toLowerCase();
+            const isCritical = fieldName.includes('government_warning') ||
+                               fieldName.includes('required') ||
+                               fieldName.includes('ttb_valid');
+
+            if (field.matches) {
+                if (fieldName.includes('typical_range')) {
+                    return 'row-warning';
+                }
+                return 'row-compliant';
+            } else {
+                if (field.expected === null || field.expected === '—' || field.expected === '') {
+                    return 'row-info';
+                }
+                return 'row-non-compliant';
+            }
+        }
+
+        function getValidationType(field) {
+            if (field.reference_source === 'user_input') {
+                return `<span class="validation-type">📝 User Input</span>`;
+            } else if (field.reference_source === 'ttb_cola_database') {
+                return `<span class="validation-type">🗄️ TTB Database</span>`;
+            } else if (field.reference_source === 'cfr_category_rule') {
+                return `<span class="validation-type">📜 Category Rule</span>`;
+            } else if (field.reference_source === 'cfr_standard') {
+                return `<span class="validation-type">📜 TTB Regulation</span>`;
+            } else if (!field.expected || field.expected === '—' || field.expected === '') {
+                return `<span class="validation-type">ℹ️ Format Check</span>`;
+            } else {
+                return `<span class="validation-type">Format Check</span>`;
+            }
+        }
+
+        function getResultDisplay(field) {
+            const extracted = field.extracted || '—';
+            const expected = field.expected;
+
+            if (expected && expected !== '—' && expected !== '') {
+                if (field.matches) {
+                    return `<span class="result-match">${extracted}</span>`;
+                } else {
+                    return `<span class="result-mismatch">${expected} ≠ ${extracted}</span>`;
+                }
+            } else {
+                return `<span class="result-extracted">${extracted}</span>`;
+            }
+        }
+
+        function getComplianceStatus(field) {
+            const fieldName = field.field_name.toLowerCase();
+            const isCritical = fieldName.includes('government_warning') ||
+                               fieldName.includes('required') ||
+                               fieldName.includes('ttb_valid');
+
+            if (field.matches) {
+                if (fieldName.includes('typical_range')) {
+                    return `<span class="status-warning">⚠ Warning</span><br><small>Unusual but valid</small>`;
+                }
+                return `<span class="status-compliant">✓ Compliant</span>`;
+            } else {
+                if (isCritical) {
+                    return `<span class="status-non-compliant">✗ Non-Compliant</span><br><small>Critical</small>`;
+                } else if (!field.expected || field.expected === '—' || field.expected === '') {
+                    return `<span class="status-info">ℹ Info</span>`;
+                } else {
+                    return `<span class="status-non-compliant">✗ Non-Compliant</span>`;
+                }
+            }
+        }
+
+        function createDetailRow(field, index) {
+            const detailRow = document.createElement('tr');
+            detailRow.id = `detail-${index}`;
+            detailRow.className = 'detail-row hidden';
+            detailRow.innerHTML = `
+                <td colspan="5">
+                    <div class="detail-panel">
+                        ${generateDetailPanel(field)}
+                    </div>
+                </td>
+            `;
+            return detailRow;
+        }
+
+        function generateDetailPanel(field) {
+            let html = `<div class="detail-content">`;
+
+            // Add comparison details
+            html += `<div class="detail-section">`;
+            html += `<h4>Comparison Details</h4>`;
+
+            if (field.reference_source === 'user_input' && field.expected) {
+                html += `<div class="comparison-row">`;
+                html += `<span class="label">Your Input:</span>`;
+                html += `<span class="value">${field.expected}</span>`;
+                html += `</div>`;
+                html += `<div class="comparison-row">`;
+                html += `<span class="label">Found on Label:</span>`;
+                html += `<span class="value">${field.extracted}</span>`;
+                html += `</div>`;
+
+                if (field.match_type) {
+                    html += `<div class="comparison-row">`;
+                    html += `<span class="label">Match Type:</span>`;
+                    html += `<span class="value">${formatMatchType(field.match_type)}</span>`;
+                    html += `</div>`;
+                }
+
+                if (field.similarity_score !== undefined) {
+                    html += `<div class="comparison-row">`;
+                    html += `<span class="label">Confidence:</span>`;
+                    html += `<span class="value">${Math.round(field.similarity_score * 100)}%</span>`;
+                    html += `</div>`;
+                }
+            } else if (field.reference_source === 'ttb_cola_database') {
+                html += `<div class="comparison-row">`;
+                html += `<span class="label">Database Record:</span>`;
+                html += `<span class="value">TTB COLA Database</span>`;
+                html += `</div>`;
+
+                if (field.reference_id) {
+                    html += `<div class="comparison-row">`;
+                    html += `<span class="label">Record ID:</span>`;
+                    html += `<span class="value code">${field.reference_id}</span>`;
+                    html += `</div>`;
+                }
+
+                if (field.expected) {
+                    html += `<div class="comparison-row">`;
+                    html += `<span class="label">Database Value:</span>`;
+                    html += `<span class="value">${field.expected}</span>`;
+                    html += `</div>`;
+                }
+
+                html += `<div class="comparison-row">`;
+                html += `<span class="label">Found on Label:</span>`;
+                html += `<span class="value">${field.extracted}</span>`;
+                html += `</div>`;
+
+                if (field.match_type) {
+                    html += `<div class="comparison-row">`;
+                    html += `<span class="label">Match Type:</span>`;
+                    html += `<span class="value">${formatMatchType(field.match_type)}</span>`;
+                    html += `</div>`;
+                }
+            } else if (field.reference_source === 'cfr_standard' || field.reference_source === 'cfr_category_rule') {
+                if (field.cfr_citation) {
+                    html += `<div class="comparison-row">`;
+                    html += `<span class="label">Regulation:</span>`;
+                    html += `<span class="value"><strong>${field.cfr_citation}</strong></span>`;
+                    html += `</div>`;
+                }
+
+                if (field.expected) {
+                    html += `<div class="comparison-row">`;
+                    html += `<span class="label">Requirement:</span>`;
+                    html += `<span class="value">${field.expected}</span>`;
+                    html += `</div>`;
+                }
+
+                html += `<div class="comparison-row">`;
+                html += `<span class="label">Result:</span>`;
+                html += `<span class="value">${field.extracted}</span>`;
+                html += `</div>`;
+            } else {
+                // Format validation or no expected value
+                html += `<div class="comparison-row">`;
+                html += `<span class="label">Found on Label:</span>`;
+                html += `<span class="value">${field.extracted}</span>`;
+                html += `</div>`;
+
+                if (!field.expected || field.expected === '—' || field.expected === '') {
+                    html += `<div class="comparison-row">`;
+                    html += `<span class="label">Note:</span>`;
+                    html += `<span class="value">No comparison performed. Provide expected value to verify accuracy.</span>`;
+                    html += `</div>`;
+                }
+            }
+
+            html += `</div>`; // Close detail-section
+
+            // Add compliance determination
+            html += `<div class="detail-section">`;
+            html += `<h4>Compliance Determination</h4>`;
+            html += `<div class="compliance-box ${field.matches ? 'compliant' : 'non-compliant'}">`;
+            if (field.matches) {
+                html += `<span class="icon">✓</span> <strong>Compliant</strong> - This field meets TTB requirements`;
+            } else {
+                if (!field.expected || field.expected === '—' || field.expected === '') {
+                    html += `<span class="icon">ℹ</span> <strong>Informational</strong> - No expected value provided for comparison`;
+                } else {
+                    html += `<span class="icon">✗</span> <strong>Non-Compliant</strong> - This field fails TTB requirements`;
+                    if (field.cfr_citation) {
+                        html += `<br><small>Review ${field.cfr_citation} for compliance requirements</small>`;
+                    }
+                }
+            }
+            html += `</div>`;
+            html += `</div>`; // Close detail-section
+
+            html += `</div>`; // Close detail-content
+            return html;
+        }
+
+        function formatMatchType(matchType) {
+            const types = {
+                'exact': 'Exact Match',
+                'normalized': 'Normalized Match (case/punctuation)',
+                'fuzzy': 'Fuzzy Match (similarity)',
+                'spelling_correction': 'Spelling Correction Suggested',
+                'mismatch': 'Mismatch'
+            };
+            return types[matchType] || matchType;
+        }
+
+        function toggleDetails(index) {
+            const detailRow = document.getElementById(`detail-${index}`);
+            const buttons = document.querySelectorAll('.details-btn');
+            const button = buttons[index];
+
+            if (detailRow.classList.contains('hidden')) {
+                detailRow.classList.remove('hidden');
+                button.textContent = '−';
+                button.setAttribute('aria-label', 'Hide details');
+            } else {
+                detailRow.classList.add('hidden');
+                button.textContent = '+';
+                button.setAttribute('aria-label', 'Show details');
             }
         }
 
