@@ -32,3 +32,4 @@ backups/
 # Production files
 .env.prod
 cloudflared/
+scripts/__pycache__/
