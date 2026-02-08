@@ -51,43 +51,105 @@ nano .env.prod
 curl http://localhost:3000/health
 ```
 
-### Step 4: Set Up Cloudflare Tunnel (Optional)
+### Step 4: Set Up HTTPS via Cloudflare Tunnel
+
+**Why Cloudflare Tunnel?**
+- ✅ No port exposure needed (works behind NAT/firewalls)
+- ✅ Automatic HTTPS with Cloudflare-managed certificates
+- ✅ Built-in DDoS protection and WAF
+- ✅ Zero configuration certificate management
+- ✅ Integrates with existing Cloudflare Workers AI and R2
+
+#### 4.1: Install cloudflared CLI
 
 ```bash
-# Install cloudflared
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
-chmod +x cloudflared
-sudo mv cloudflared /usr/local/bin/
+# macOS
+brew install cloudflare/cloudflare/cloudflared
 
-# Login to Cloudflare
+# Linux (Debian/Ubuntu)
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb
+
+# Verify installation
+cloudflared --version
+```
+
+#### 4.2: Create and Configure Tunnel
+
+```bash
+# 1. Authenticate with Cloudflare
 cloudflared tunnel login
 
-# Create tunnel
+# 2. Create tunnel
 cloudflared tunnel create label-verify-hw
 
-# Save tunnel ID from output
-TUNNEL_ID="<your-tunnel-id>"
-
-# Create config
-mkdir -p ~/.cloudflared
-cat > ~/.cloudflared/config.yml <<EOF
-tunnel: $TUNNEL_ID
-credentials-file: /root/.cloudflared/$TUNNEL_ID.json
-
-ingress:
-  - hostname: api.yourdomain.com
-    service: http://localhost:3000
-  - service: http_status:404
-EOF
-
-# Route DNS
+# 3. Create DNS record (replace with your domain)
 cloudflared tunnel route dns label-verify-hw api.yourdomain.com
 
-# Run tunnel as service
-cloudflared service install
-sudo systemctl start cloudflared
-sudo systemctl enable cloudflared
+# 4. Get tunnel token (copy this output)
+cloudflared tunnel token label-verify-hw
 ```
+
+#### 4.3: Add Tunnel Token to Environment
+
+Edit `.env.prod` and add:
+
+```bash
+# Cloudflare Tunnel
+TUNNEL_TOKEN=eyJh...your_actual_token_here
+DOMAIN_NAME=api.yourdomain.com
+```
+
+#### 4.4: Configure Cloudflare SSL Settings
+
+1. Go to **Cloudflare Dashboard** → Your Domain → **SSL/TLS** → **Overview**
+2. Set encryption mode: **Full**
+3. Go to **SSL/TLS** → **Edge Certificates**
+4. Enable **Always Use HTTPS**
+5. Enable **HTTP Strict Transport Security (HSTS)** (recommended):
+   - Max Age: 6 months (15768000 seconds)
+   - Include subdomains: Yes
+   - Preload: No
+6. Enable **Automatic HTTPS Rewrites**
+
+#### 4.5: Deploy with HTTPS
+
+```bash
+# Deploy all services (including cloudflared)
+./deploy.sh deploy
+
+# Verify tunnel is connected
+docker logs labelverify-tunnel
+
+# Expected output: "Registered tunnel connection"
+```
+
+#### 4.6: Test HTTPS Endpoint
+
+```bash
+# Test health check via HTTPS
+curl https://api.yourdomain.com/health
+
+# Expected: {"status":"ok","version":"0.1.0",...}
+
+# Test HTTP redirect
+curl -I http://api.yourdomain.com/health
+
+# Expected: 301/302 redirect to HTTPS
+```
+
+#### 4.7: Optional - Remove Port Exposure
+
+For production security, you can remove direct port access by editing `docker-compose.yml`:
+
+```yaml
+  api:
+    # Comment out port exposure - traffic only via Cloudflare Tunnel
+    # ports:
+    #   - "3000:3000"
+```
+
+**Note:** Keep port exposed during testing, then remove for production deployment.
 
 ### Step 5: Scale Workers (Optional)
 
@@ -123,6 +185,13 @@ Before deploying to production:
 - [ ] Generated scoped Cloudflare tokens (production only)
 - [ ] Reviewed .env.prod for correctness
 - [ ] Backed up encryption key securely
+- [ ] **HTTPS Setup:**
+  - [ ] Created Cloudflare Tunnel
+  - [ ] Added TUNNEL_TOKEN to .env.prod
+  - [ ] Set Cloudflare SSL mode to "Full"
+  - [ ] Enabled "Always Use HTTPS"
+  - [ ] Enabled HSTS
+  - [ ] Tested HTTPS endpoint
 - [ ] Set up Cloudflare WAF and DDoS protection
 - [ ] Enabled rate limiting
 - [ ] Configured firewall rules
@@ -294,6 +363,42 @@ docker stats
 # Or increase server resources
 ```
 
+### Cloudflare Tunnel not connecting
+
+```bash
+# Check tunnel logs
+docker logs labelverify-tunnel
+
+# Verify TUNNEL_TOKEN is correct
+grep TUNNEL_TOKEN .env.prod
+
+# Check tunnel status in Cloudflare dashboard
+# Dashboard → Traffic → Cloudflare Tunnel
+
+# Common fixes:
+# - Regenerate tunnel token: cloudflared tunnel token label-verify-hw
+# - Update TUNNEL_TOKEN in .env.prod
+# - Restart: ./deploy.sh restart
+```
+
+### HTTPS not working (502 Bad Gateway)
+
+```bash
+# Check API is healthy
+docker compose --env-file .env.prod exec api curl http://localhost:3000/health
+
+# Check tunnel is connected
+docker logs labelverify-tunnel | grep -i "registered"
+
+# Verify DNS record
+dig api.yourdomain.com
+
+# Expected: CNAME to <tunnel-id>.cfargotunnel.com
+
+# Check Cloudflare SSL mode
+# Dashboard → SSL/TLS → Should be "Full" or "Full (strict)"
+```
+
 ## 📚 Further Reading
 
 - Full deployment guide: `docs/CLOUDFLARE_DEPLOYMENT.md`
@@ -305,8 +410,12 @@ docker stats
 
 - [ ] Environment configured (.env.prod)
 - [ ] Services deployed and healthy
-- [ ] Cloudflare Tunnel configured (optional)
-- [ ] SSL/TLS enabled
+- [ ] **HTTPS enabled via Cloudflare Tunnel:**
+  - [ ] cloudflared tunnel created
+  - [ ] DNS record configured
+  - [ ] TUNNEL_TOKEN added to .env.prod
+  - [ ] Cloudflare SSL settings configured
+  - [ ] HTTPS endpoint tested
 - [ ] Rate limiting configured
 - [ ] Monitoring set up
 - [ ] Backups scheduled

@@ -45,7 +45,7 @@ services:
       dockerfile: Dockerfile.api
     container_name: labelverify-api
     ports:
-      - "3000:3000"
+      - "3000:3000"  # Expose for local testing; can remove for production (traffic via Cloudflare Tunnel)
     environment:
       BIND_ADDR: 0.0.0.0:3000
       DATABASE_URL: ${DOCKER_DATABASE_URL}
@@ -102,19 +102,27 @@ services:
     deploy:
       replicas: 1
 
-  # Cloudflare Tunnel (optional - for production)
-  # Uncomment to use Cloudflare Tunnel
-  # cloudflared:
-  #   image: cloudflare/cloudflared:latest
-  #   container_name: labelverify-tunnel
-  #   command: tunnel --no-autoupdate run
-  #   environment:
-  #     TUNNEL_TOKEN: ${TUNNEL_TOKEN}
-  #   depends_on:
-  #     - api
-  #   restart: unless-stopped
-  #   networks:
-  #     - labelverify-network
+  # Cloudflare Tunnel (HTTPS via Cloudflare edge)
+  # Requires TUNNEL_TOKEN in .env.prod
+  # See .env.prod.example for setup instructions
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: labelverify-tunnel
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - labelverify-network
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "info"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 volumes:
   postgres-data:

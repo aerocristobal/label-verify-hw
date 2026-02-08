@@ -244,7 +244,7 @@ The system performs multi-layer validation on each label:
 ## Docker Deployment
 
 ```bash
-# Build and start
+# Build and start (includes HTTPS via Cloudflare Tunnel)
 docker compose --env-file .env.prod up -d --build
 
 # Scale workers
@@ -253,11 +253,14 @@ docker compose --env-file .env.prod up -d --scale worker=3
 # View logs
 docker logs labelverify-api -f
 docker logs labelverify-worker -f
+docker logs labelverify-tunnel -f  # HTTPS tunnel logs
 
 # Run migration manually
 docker exec labelverify-postgres psql -U labelverify -d labelverify_prod \
   -f /migrations/20260208001_add_ttb_cola_match_type.sql
 ```
+
+**HTTPS Setup**: The application includes Cloudflare Tunnel for zero-config HTTPS. See [Deployment Guide](docs/DEPLOYMENT.md#step-4-set-up-https-via-cloudflare-tunnel) for setup instructions.
 
 ## Development
 
@@ -273,6 +276,7 @@ cargo run --example test_workers_ai  # Test Workers AI connectivity
 
 ## Security
 
+- **HTTPS via Cloudflare Tunnel**: Zero-config TLS with automatic certificate management, DDoS protection, and WAF
 - **Encryption at rest**: AES-256-GCM for all stored images
 - **In-memory decryption**: Images never persisted unencrypted
 - **Scoped API tokens**: Cloudflare tokens with minimum permissions
