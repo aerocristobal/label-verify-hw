@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO beverage_match_history\n            (id, job_id, matched_beverage_id, match_type, match_confidence, abv_deviation)\n        VALUES ($1, $2, $3, $4, $5::float8, $6::float8)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Varchar",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3bb8d9300ae0aad138fdf5a474326ffad1cd522eb2652a9a21e463293d825603"
+}

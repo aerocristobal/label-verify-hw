@@ -13,9 +13,9 @@ pub async fn find_known_beverage(
     sqlx::query_as!(
         KnownBeverage,
         r#"
-        SELECT id, brand_name, product_name, class_type, beverage_category,
-               abv, standard_size_ml, country_of_origin, producer,
-               is_verified, source, source_url, notes, created_at, updated_at
+        SELECT id, brand_name as "brand_name!", product_name, class_type as "class_type!", beverage_category as "beverage_category!",
+               abv::float8 as "abv!", standard_size_ml, country_of_origin, producer,
+               is_verified as "is_verified!", source as "source!", source_url, notes, created_at as "created_at!", updated_at as "updated_at!"
         FROM known_beverages
         WHERE LOWER(brand_name) = LOWER($1)
           AND LOWER(class_type) = LOWER($2)
@@ -37,9 +37,9 @@ pub async fn find_known_beverage_by_brand(
     sqlx::query_as!(
         KnownBeverage,
         r#"
-        SELECT id, brand_name, product_name, class_type, beverage_category,
-               abv, standard_size_ml, country_of_origin, producer,
-               is_verified, source, source_url, notes, created_at, updated_at
+        SELECT id, brand_name as "brand_name!", product_name, class_type as "class_type!", beverage_category as "beverage_category!",
+               abv::float8 as "abv!", standard_size_ml, country_of_origin, producer,
+               is_verified as "is_verified!", source as "source!", source_url, notes, created_at as "created_at!", updated_at as "updated_at!"
         FROM known_beverages
         WHERE LOWER(brand_name) = LOWER($1)
         ORDER BY is_verified DESC
@@ -94,8 +94,9 @@ pub async fn get_category_rule(
     sqlx::query_as!(
         BeverageCategoryRule,
         r#"
-        SELECT id, category, min_abv, max_abv, typical_min_abv, typical_max_abv,
-               cfr_reference, description, created_at
+        SELECT id, category as "category!", min_abv::float8 as "min_abv!", max_abv::float8 as "max_abv!",
+               typical_min_abv::float8 as "typical_min_abv", typical_max_abv::float8 as "typical_max_abv",
+               cfr_reference, description, created_at as "created_at!"
         FROM beverage_category_rules
         WHERE category = $1
         "#,
@@ -171,7 +172,7 @@ pub async fn record_match_history(
         r#"
         INSERT INTO beverage_match_history
             (id, job_id, matched_beverage_id, match_type, match_confidence, abv_deviation)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5::float8, $6::float8)
         "#,
         id,
         match_history.job_id,

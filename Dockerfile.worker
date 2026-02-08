@@ -29,10 +29,12 @@ RUN cargo build --release && \
 COPY src ./src
 COPY static ./static
 COPY migrations ./migrations
+COPY .sqlx ./.sqlx
 
 # Build worker binary
 # Touch files to ensure rebuild
-# SQLx will use unchecked queries (no database available during build)
+# Use sqlx offline mode (prepared query cache in .sqlx directory)
+ENV SQLX_OFFLINE=true
 RUN touch src/bin/worker.rs && \
     cargo build --release --bin worker
 
