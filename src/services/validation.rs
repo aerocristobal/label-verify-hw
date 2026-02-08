@@ -2,7 +2,6 @@ use sqlx::PgPool;
 use strsim::jaro_winkler;
 
 use crate::db::beverage_queries;
-use crate::models::beverage::NewMatchHistory;
 use crate::models::label::{ExtractedLabelFields, FieldVerification, VerificationResult};
 use crate::services::ttb_standards;
 
