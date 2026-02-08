@@ -40,6 +40,9 @@ metrics-exporter-prometheus = "0.16"
 # Job queue
 redis = { version = "0.27", features = ["tokio-comp"] }
 
+# HTML parsing (for TTB COLA public database scraping)
+scraper = "0.22"
+
 # Utilities
 chrono = { version = "0.4", features = ["serde"] }
 base64 = "0.22"

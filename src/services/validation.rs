@@ -1,8 +1,10 @@
 use sqlx::PgPool;
 use strsim::jaro_winkler;
+use tracing::{info, warn};
 
 use crate::db::beverage_queries;
 use crate::models::label::{ExtractedLabelFields, FieldVerification, VerificationResult};
+use crate::services::ttb_cola::{self, TtbColaRecord};
 use crate::services::ttb_standards;
 
 /// Threshold for fuzzy string matching (0.0 - 1.0).
@@ -288,42 +290,110 @@ pub async fn verify_label_with_database(
             });
         }
     } else {
-        // No exact match - try fuzzy brand-only match
-        let brand_matches = if !extracted.brand_name.is_empty() {
-            beverage_queries::find_known_beverage_by_brand(pool, &extracted.brand_name).await?
-        } else {
-            Vec::new()
-        };
+        // No exact match in local cache — try TTB COLA public database (read-through cache)
+        let mut ttb_matched = false;
 
-        if let Some(fuzzy_match) = brand_matches.first() {
-            // Found brand but not exact class/type
-            result.matched_beverage_id = Some(fuzzy_match.id);
-            result.match_type = "fuzzy".to_string();
+        if !extracted.brand_name.is_empty() {
+            match ttb_cola_lookup(pool, extracted).await {
+                Ok(Some((ttb_record, cached_beverage))) => {
+                    info!(
+                        brand = %extracted.brand_name,
+                        ttb_id = %ttb_record.ttb_id,
+                        "TTB COLA lookup found match"
+                    );
 
-            // Calculate fuzzy match confidence based on class/type similarity
-            let class_similarity = jaro_winkler(
-                &extracted.class_type.to_lowercase(),
-                &fuzzy_match.class_type.to_lowercase(),
-            );
-            result.match_confidence = class_similarity;
+                    result.matched_beverage_id = cached_beverage.map(|b| b.id);
+                    result.match_type = "ttb_cola_lookup".to_string();
 
-            // Check ABV consistency
-            let abv_diff = (extracted.abv - fuzzy_match.abv).abs();
-            result.abv_deviation = Some(abv_diff);
+                    let brand_sim = jaro_winkler(
+                        &extracted.brand_name.to_lowercase(),
+                        &ttb_record.brand_name.to_lowercase(),
+                    );
+                    let class_sim = jaro_winkler(
+                        &extracted.class_type.to_lowercase(),
+                        &ttb_record.class_type_desc.to_lowercase(),
+                    );
+                    result.match_confidence = brand_sim * 0.7 + class_sim * 0.3;
 
-            if abv_diff > 2.0 {
-                // More lenient threshold for fuzzy matches
-                result.field_results.push(FieldVerification {
-                    field_name: "abv_database_fuzzy_match".to_string(),
-                    expected: Some(format!(
-                        "{:.1}% (from similar product: {})",
-                        fuzzy_match.abv, fuzzy_match.class_type
-                    )),
-                    extracted: format!("{:.1}%", extracted.abv),
-                    matches: false,
-                    similarity_score: (1.0 - (abv_diff / 100.0)).max(0.0),
-                });
-                result.passed = false;
+                    // Add TTB reference verification entry
+                    result.field_results.push(FieldVerification {
+                        field_name: "ttb_cola_reference".to_string(),
+                        expected: Some(format!(
+                            "{} — {} (TTB ID: {})",
+                            ttb_record.brand_name, ttb_record.class_type_desc, ttb_record.ttb_id
+                        )),
+                        extracted: format!("{} — {}", extracted.brand_name, extracted.class_type),
+                        matches: brand_sim >= 0.80,
+                        similarity_score: result.match_confidence,
+                    });
+
+                    // Check ABV against TTB-inferred value (wider tolerance: 3.0%)
+                    if let Some(ttb_abv) = ttb_record.inferred_abv {
+                        let abv_diff = (extracted.abv - ttb_abv).abs();
+                        result.abv_deviation = Some(abv_diff);
+
+                        result.field_results.push(FieldVerification {
+                            field_name: "abv_ttb_cola_reference".to_string(),
+                            expected: Some(format!(
+                                "{:.1}% (inferred from TTB class: {})",
+                                ttb_abv, ttb_record.class_type_desc
+                            )),
+                            extracted: format!("{:.1}%", extracted.abv),
+                            matches: abv_diff <= 3.0,
+                            similarity_score: (1.0 - (abv_diff / 100.0)).max(0.0),
+                        });
+
+                        if abv_diff > 3.0 {
+                            result.passed = false;
+                        }
+                    }
+
+                    ttb_matched = true;
+                }
+                Ok(None) => {
+                    info!(brand = %extracted.brand_name, "TTB COLA lookup returned no match");
+                }
+                Err(e) => {
+                    warn!(brand = %extracted.brand_name, error = %e, "TTB COLA lookup failed, falling back to fuzzy search");
+                    result.warnings.push(format!(
+                        "TTB COLA public database query failed: {}. Falling back to local fuzzy search.",
+                        e
+                    ));
+                }
+            }
+        }
+
+        // Fallback: fuzzy brand-only search in local cache (if TTB COLA didn't match)
+        if !ttb_matched && !extracted.brand_name.is_empty() {
+            let brand_matches =
+                beverage_queries::find_known_beverage_by_brand(pool, &extracted.brand_name).await?;
+
+            if let Some(fuzzy_match) = brand_matches.first() {
+                result.matched_beverage_id = Some(fuzzy_match.id);
+                result.match_type = "fuzzy".to_string();
+
+                let class_similarity = jaro_winkler(
+                    &extracted.class_type.to_lowercase(),
+                    &fuzzy_match.class_type.to_lowercase(),
+                );
+                result.match_confidence = class_similarity;
+
+                let abv_diff = (extracted.abv - fuzzy_match.abv).abs();
+                result.abv_deviation = Some(abv_diff);
+
+                if abv_diff > 2.0 {
+                    result.field_results.push(FieldVerification {
+                        field_name: "abv_database_fuzzy_match".to_string(),
+                        expected: Some(format!(
+                            "{:.1}% (from similar product: {})",
+                            fuzzy_match.abv, fuzzy_match.class_type
+                        )),
+                        extracted: format!("{:.1}%", extracted.abv),
+                        matches: false,
+                        similarity_score: (1.0 - (abv_diff / 100.0)).max(0.0),
+                    });
+                    result.passed = false;
+                }
             }
         }
     }
@@ -411,6 +481,85 @@ pub async fn verify_label_with_database(
     };
 
     Ok(result)
+}
+
+/// Query TTB COLA public database and cache results, returning the best match.
+///
+/// Flow: search TTB by brand → cache all results → find best match via weighted similarity.
+/// Returns (best_ttb_record, optional_cached_beverage) or None if no good match found.
+async fn ttb_cola_lookup(
+    pool: &PgPool,
+    extracted: &ExtractedLabelFields,
+) -> Result<Option<(TtbColaRecord, Option<crate::models::beverage::KnownBeverage>)>, Box<dyn std::error::Error + Send + Sync>> {
+    let client = ttb_cola::get_client()?;
+
+    info!(brand = %extracted.brand_name, "Cache miss — querying TTB COLA public database");
+
+    let records = client
+        .search_by_brand(&extracted.brand_name, None, 20)
+        .await?;
+
+    if records.is_empty() {
+        return Ok(None);
+    }
+
+    info!(count = records.len(), "TTB COLA returned results, caching");
+
+    // Cache all results in known_beverages
+    let cached = beverage_queries::upsert_batch_from_ttb_cola(pool, &records).await?;
+
+    // Find the best matching record
+    let best = find_best_ttb_match(&records, extracted);
+
+    match best {
+        Some(ttb_record) => {
+            // Find the corresponding cached beverage for matched_beverage_id
+            let cached_bev = cached.into_iter().find(|b| {
+                b.brand_name.eq_ignore_ascii_case(&ttb_record.brand_name)
+                    && b.class_type.eq_ignore_ascii_case(&ttb_record.class_type_desc)
+            });
+            Ok(Some((ttb_record, cached_bev)))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Find the best TTB COLA match using weighted Jaro-Winkler similarity.
+///
+/// Scoring: brand_similarity * 0.7 + class_similarity * 0.3
+/// Requires brand_similarity >= 0.80 to be considered a match.
+fn find_best_ttb_match(
+    records: &[TtbColaRecord],
+    extracted: &ExtractedLabelFields,
+) -> Option<TtbColaRecord> {
+    let mut best_score = 0.0_f64;
+    let mut best_record: Option<&TtbColaRecord> = None;
+
+    for record in records {
+        let brand_sim = jaro_winkler(
+            &extracted.brand_name.to_lowercase(),
+            &record.brand_name.to_lowercase(),
+        );
+
+        // Brand must meet minimum threshold
+        if brand_sim < 0.80 {
+            continue;
+        }
+
+        let class_sim = jaro_winkler(
+            &extracted.class_type.to_lowercase(),
+            &record.class_type_desc.to_lowercase(),
+        );
+
+        let score = brand_sim * 0.7 + class_sim * 0.3;
+
+        if score > best_score {
+            best_score = score;
+            best_record = Some(record);
+        }
+    }
+
+    best_record.cloned()
 }
 
 #[cfg(test)]

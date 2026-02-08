@@ -1,8 +1,10 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use tracing::{info, warn};
 
 use crate::models::beverage::{BeverageCategoryRule, KnownBeverage, NewMatchHistory};
+use crate::services::ttb_cola::TtbColaRecord;
 
 /// Find known beverages by brand and class/type (case-insensitive)
 pub async fn find_known_beverage(
@@ -159,6 +161,90 @@ fn infer_category_from_class(class_type: &str) -> String {
 
     // Default to wine (most common)
     "wine".to_string()
+}
+
+/// Upsert a single TTB COLA record into the known_beverages cache.
+///
+/// Uses INSERT...ON CONFLICT DO UPDATE to update existing entries with fresh TTB data.
+/// The unique constraint is on (LOWER(brand_name), LOWER(COALESCE(product_name, '')), abv).
+pub async fn upsert_from_ttb_cola(
+    pool: &PgPool,
+    record: &TtbColaRecord,
+) -> Result<KnownBeverage, sqlx::Error> {
+    let product_name = record.fanciful_name.clone();
+    let abv = record.inferred_abv.unwrap_or(0.0);
+    let notes = format!(
+        "TTB COLA ID: {}, Permit: {}, Origin: {} ({})",
+        record.ttb_id, record.permit_no, record.origin_desc, record.origin_code
+    );
+
+    // Use untyped query to handle expression-based ON CONFLICT
+    let row = sqlx::query_as::<_, KnownBeverage>(
+        r#"
+        INSERT INTO known_beverages
+            (brand_name, product_name, class_type, beverage_category, abv, source, source_url, notes)
+        VALUES ($1, $2, $3, $4, $5, 'ttb_cola', $6, $7)
+        ON CONFLICT (LOWER(brand_name), LOWER(COALESCE(product_name, '')), abv)
+        DO UPDATE SET
+            source = 'ttb_cola',
+            source_url = EXCLUDED.source_url,
+            notes = EXCLUDED.notes,
+            updated_at = NOW()
+        RETURNING id, brand_name, product_name, class_type, beverage_category,
+                  abv::float8 as abv, standard_size_ml, country_of_origin, producer,
+                  is_verified, source, source_url, notes, created_at, updated_at
+        "#,
+    )
+    .bind(&record.brand_name)
+    .bind(&product_name)
+    .bind(&record.class_type_desc)
+    .bind(&record.beverage_category)
+    .bind(abv)
+    .bind(&record.source_url)
+    .bind(&notes)
+    .fetch_one(pool)
+    .await?;
+
+    info!(
+        brand = %record.brand_name,
+        ttb_id = %record.ttb_id,
+        "Cached TTB COLA record in known_beverages"
+    );
+
+    Ok(row)
+}
+
+/// Batch upsert TTB COLA records into the known_beverages cache.
+///
+/// Processes each record individually with per-record error handling.
+/// Individual failures are logged as warnings but don't abort the batch.
+pub async fn upsert_batch_from_ttb_cola(
+    pool: &PgPool,
+    records: &[TtbColaRecord],
+) -> Result<Vec<KnownBeverage>, sqlx::Error> {
+    let mut cached = Vec::with_capacity(records.len());
+
+    for record in records {
+        match upsert_from_ttb_cola(pool, record).await {
+            Ok(beverage) => cached.push(beverage),
+            Err(e) => {
+                warn!(
+                    brand = %record.brand_name,
+                    ttb_id = %record.ttb_id,
+                    error = %e,
+                    "Failed to cache TTB COLA record (continuing with remaining)"
+                );
+            }
+        }
+    }
+
+    info!(
+        cached = cached.len(),
+        total = records.len(),
+        "Batch cached TTB COLA records"
+    );
+
+    Ok(cached)
 }
 
 /// Record match history for analytics
